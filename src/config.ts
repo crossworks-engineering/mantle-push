@@ -47,7 +47,7 @@ export const config = {
   provider,
 
   apns: {
-    topic: env('APNS_TOPIC', 'network.crossworks.mantle'),
+    topic: env('APNS_TOPIC', 'crossworks.engineering.mantle'),
     keyId: process.env.APNS_KEY_ID ?? '',
     teamId: process.env.APNS_TEAM_ID ?? '',
     key: fileOrInline('APNS_KEY_P8', 'APNS_KEY_PATH'),

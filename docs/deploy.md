@@ -38,64 +38,53 @@ it's inert until the relay container is up on Caddy's network.
 
 ### 2. Relay stack on prod
 
-Add an override that attaches this repo's services to Mantle's network
-(`mantle_default`) and runs in `live` mode with the real credentials:
-
-```yaml
-# docker-compose.prod.yml (on the prod box, next to this repo)
-services:
-  push:
-    environment:
-      PUSH_PROVIDER: live
-      APNS_KEY_ID: ${APNS_KEY_ID}
-      APNS_TEAM_ID: ${APNS_TEAM_ID}
-      APNS_KEY_PATH: /run/secrets/apns.p8
-      APNS_ENV: production
-      FCM_PROJECT_ID: ${FCM_PROJECT_ID}
-      FCM_SERVICE_ACCOUNT_PATH: /run/secrets/fcm.json
-    volumes:
-      - ./secrets/apns.p8:/run/secrets/apns.p8:ro
-      - ./secrets/fcm.json:/run/secrets/fcm.json:ro
-    networks:
-      - default        # this stack's own net (reaches db)
-      - mantle         # Mantle's net, so Caddy can reach `push`
-    ports: []          # no public port — only Caddy reaches it
-
-networks:
-  mantle:
-    external: true
-    name: mantle_default
-```
-
-Then:
+The committed `docker-compose.prod.yml` attaches the services to Mantle's network
+(`mantle_default`), drops host port publishing, and mounts the two secret files.
+Its values come from a gitignored `.env` next to it on the box (compose
+auto-loads it). On the prod box `~/mantle-push/.env`:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
-docker compose exec push node src/migrate.ts   # first deploy only
+# Non-secret identifiers (registered 2026-06-14). The .p8/JSON are the secrets.
+PUSH_PROVIDER=mock                      # flip to `live` once the two files are in ./secrets/
+APNS_TOPIC=crossworks.engineering.mantle
+APNS_KEY_ID=J65R8HBX33                  # APNs key "pushy2", team-scoped, Sandbox+Production
+APNS_TEAM_ID=P6NLP32L8H
+APNS_ENV=sandbox                        # sandbox for dev builds; production for TestFlight/App Store
+FCM_PROJECT_ID=pusher-5bacc
 ```
 
-Caddy (already on `mantle_default`) now proxies `push.crossworks.network` →
-`push:8787`.
+Two secret files go in `~/mantle-push/secrets/` (the directory + `*.p8` are
+gitignored):
 
-## Credentials needed before `live`
+| File | Mounts as | Source |
+|---|---|---|
+| `AuthKey.p8` | `/run/secrets/apns.p8` | Jason's `AuthKey_J65R8HBX33.p8` (one-time download) |
+| `fcm-service-account.json` | `/run/secrets/fcm-service-account.json` | Firebase → pusher → Project settings → Service accounts → Generate new private key |
 
-- **APNs**: an Apple Developer account, a `.p8` token key (`APNS_KEY_ID`,
-  `APNS_TEAM_ID`), and the app's bundle id as `APNS_TOPIC`. Use `APNS_ENV=sandbox`
-  for development/TestFlight-debug builds, `production` for the store/release.
-- **FCM**: a Firebase project, a service-account JSON (`FCM_PROJECT_ID` +
-  the key file).
+Bring it up:
 
-These don't exist yet — M1 is fully verifiable in `mock` mode without them. They
-become required at **M3/M4** (the iOS/Android app work), which is when the relay
-flips to `live`.
+```bash
+cd ~/mantle-push
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+Caddy (already on `mantle_default`) proxies `push.crossworks.network` → `push:8787`.
+
+### To go live
+
+1. `scp` the two files into `~/mantle-push/secrets/` (names exactly as the table).
+2. Set `PUSH_PROVIDER=live` in `~/mantle-push/.env`.
+3. Re-run the `up` command above. The relay refuses to boot in `live` mode if
+   either credential is missing (fail-fast), so a clean start confirms both loaded.
 
 ## Smoke-test a live deploy
 
 ```bash
 curl -s https://push.crossworks.network/healthz        # {"ok":true,"provider":"live"}
-# then run scripts/smoke.ts with BASE_URL set — but note it uses the mock
-# assertion on /healthz; against live, register/enroll/notify still work, though
-# /notify will attempt a real APNs/FCM send to the (fake) token and return 502.
 ```
 
-For a real end-to-end test you need a device-issued OS push token (M3+).
+Without a real device token you can still prove the APNs/FCM **auth** works:
+register an instance, enroll a fake OS token, and `/notify` it — APNs returns
+**400 `BadDeviceToken`** (relay → `410`), which means our ES256 `.p8` JWT was
+accepted (a credential error would be `403 InvalidProviderToken`). A real
+end-to-end push needs a device-issued token (M3/M4).

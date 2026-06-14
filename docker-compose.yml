@@ -36,7 +36,7 @@ services:
       PORT: 8787
       DATABASE_URL: postgres://push:push@db:5432/mantle_push
       PUSH_PROVIDER: ${PUSH_PROVIDER:-mock}
-      APNS_TOPIC: ${APNS_TOPIC:-network.crossworks.mantle}
+      APNS_TOPIC: ${APNS_TOPIC:-crossworks.engineering.mantle}
     ports:
       - '8787:8787'
     # Run migrations then start. (In prod, a one-shot migrate step does this.)

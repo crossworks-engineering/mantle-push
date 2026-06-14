@@ -7,10 +7,12 @@
 #     reach this service as `push:8787` (the Caddyfile site block target).
 #   - no published host ports — only Caddy (and the relay's own db) reach it.
 #   - restart: unless-stopped, for resilience across reboots.
+#   - mounts the APNs .p8 + FCM service-account JSON from ./secrets/ (read-only).
 #
-# Runs in PUSH_PROVIDER=mock until real APNs/FCM credentials exist. To go live:
-# set PUSH_PROVIDER=live and mount the .p8 + service-account JSON (see
-# docs/deploy.md) — no other change.
+# Values come from a gitignored `.env` next to this file on the box (compose
+# auto-loads it). To go LIVE: drop the two secret files in ./secrets/, set
+# PUSH_PROVIDER=live in that .env, then re-run the up command above. Until then
+# it runs PUSH_PROVIDER=mock and ignores the (absent) secrets.
 
 services:
   push:
@@ -20,7 +22,18 @@ services:
       PORT: 8787
       DATABASE_URL: postgres://push:push@db:5432/mantle_push
       PUSH_PROVIDER: ${PUSH_PROVIDER:-mock}
-      APNS_TOPIC: ${APNS_TOPIC:-network.crossworks.mantle}
+      # APNs (Apple) — bundle id + token-auth identifiers (not secret; the .p8 is).
+      APNS_TOPIC: ${APNS_TOPIC:-crossworks.engineering.mantle}
+      APNS_KEY_ID: ${APNS_KEY_ID:-}
+      APNS_TEAM_ID: ${APNS_TEAM_ID:-}
+      APNS_KEY_PATH: /run/secrets/apns.p8
+      APNS_ENV: ${APNS_ENV:-sandbox}
+      # FCM (Google) — project id + service-account JSON (the JSON is the secret).
+      FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}
+      FCM_SERVICE_ACCOUNT_PATH: /run/secrets/fcm-service-account.json
+    volumes:
+      - ./secrets/AuthKey.p8:/run/secrets/apns.p8:ro
+      - ./secrets/fcm-service-account.json:/run/secrets/fcm-service-account.json:ro
     networks:
       - default
       - mantle
