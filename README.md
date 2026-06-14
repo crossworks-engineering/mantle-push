@@ -6,8 +6,9 @@ Google (FCM) push credentials — the one thing a self-hosted Mantle backend
 physically cannot — and forwards **opaque ciphertext** to the right device. It
 never sees notification content, the Mantle URL, or any private key.
 
-> Full design + rationale: [`../mantle-companion/docs/push-notifications.md`](../mantle-companion/docs/push-notifications.md).
-> This repo is **M1** of that plan: the relay MVP.
+> **Internals:** [`docs/architecture.md`](docs/architecture.md) — the blind-relay
+> design, token/ticket model, data flows, providers, and threat model.
+> **Full product design:** [`../mantle-companion/docs/push-notifications.md`](../mantle-companion/docs/push-notifications.md).
 
 MIT-licensed and self-hostable. The hosted instance runs at
 `https://push.crossworks.network`.
