@@ -1,0 +1,35 @@
+# Prod overlay for the co-located deploy on the Mantle box.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Differences from local dev:
+#   - joins Mantle's docker network (mantle_default) so the existing Caddy can
+#     reach this service as `push:8787` (the Caddyfile site block target).
+#   - no published host ports — only Caddy (and the relay's own db) reach it.
+#   - restart: unless-stopped, for resilience across reboots.
+#
+# Runs in PUSH_PROVIDER=mock until real APNs/FCM credentials exist. To go live:
+# set PUSH_PROVIDER=live and mount the .p8 + service-account JSON (see
+# docs/deploy.md) — no other change.
+
+services:
+  push:
+    restart: unless-stopped
+    ports: !override [] # drop the dev 8787:8787 publish
+    environment:
+      PORT: 8787
+      DATABASE_URL: postgres://push:push@db:5432/mantle_push
+      PUSH_PROVIDER: ${PUSH_PROVIDER:-mock}
+      APNS_TOPIC: ${APNS_TOPIC:-network.crossworks.mantle}
+    networks:
+      - default
+      - mantle
+
+  db:
+    restart: unless-stopped
+    ports: !override [] # don't expose Postgres on the host
+
+networks:
+  mantle:
+    external: true
+    name: mantle_default
