@@ -1,0 +1,46 @@
+# Local dev stack for mantle-push: its OWN Postgres (isolated from Mantle's
+# brain DB) + the relay service. For prod, mantle-push is added to Mantle's
+# compose stack behind Caddy (see ../mantle/docker-compose.yml + the Caddyfile
+# site block; docs/deploy.md here).
+#
+#   docker compose up -d db          # just Postgres, then `pnpm dev` natively
+#   docker compose up --build        # full containerized stack
+#
+name: mantle-push
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: mantle_push_db
+    environment:
+      POSTGRES_USER: push
+      POSTGRES_PASSWORD: push
+      POSTGRES_DB: mantle_push
+    ports:
+      - '5544:5432' # non-default host port: never clashes with Mantle's 5432
+    volumes:
+      - mantle_push_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U push -d mantle_push']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  push:
+    build: .
+    container_name: mantle_push
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 8787
+      DATABASE_URL: postgres://push:push@db:5432/mantle_push
+      PUSH_PROVIDER: ${PUSH_PROVIDER:-mock}
+      APNS_TOPIC: ${APNS_TOPIC:-network.crossworks.mantle}
+    ports:
+      - '8787:8787'
+    # Run migrations then start. (In prod, a one-shot migrate step does this.)
+    command: ['sh', '-c', 'node src/migrate.ts && node src/index.ts']
+
+volumes:
+  mantle_push_pgdata:

@@ -1,0 +1,29 @@
+{
+  "name": "mantle-push",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mantle Push — a blind, end-to-end-encrypted push relay for the Mantle Companion app. Holds the app's APNs/FCM credentials; forwards opaque ciphertext to devices. Never sees notification content.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@11.1.2",
+  "scripts": {
+    "dev": "node --watch --env-file=.env src/index.ts",
+    "start": "node src/index.ts",
+    "migrate": "node src/migrate.ts",
+    "typecheck": "tsc --noEmit",
+    "smoke": "node scripts/smoke.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "hono": "^4.6.14",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/pg": "^8.11.10",
+    "typescript": "^5.7.2"
+  }
+}
