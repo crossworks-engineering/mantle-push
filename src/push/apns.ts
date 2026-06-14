@@ -92,7 +92,9 @@ export function createApnsProvider(cfg: ApnsConfig): PushProvider {
         const unregistered = status === 410 || reason === 'BadDeviceToken' || reason === 'Unregistered';
         resolve({ ok: false, status, reason, unregistered });
       });
-      req.setEncoding('utf8');
+      // NB: do NOT setEncoding('utf8') here — the `data` handler collects Buffers
+      // for Buffer.concat below; switching to string chunks makes that throw
+      // (swallowed), losing the APNs reason and misreporting as bare "apns_<n>".
       req.end(body);
     });
   }
