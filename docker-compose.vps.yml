@@ -1,23 +1,20 @@
-# Prod overlay for the co-located deploy on the Mantle box.
+# Overlay for the DEDICATED Mantle Push VPS (push.crossworks.network).
 #
-#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --build
 #
-# Differences from local dev:
-#   - joins Mantle's docker network (mantle_default) so the existing Caddy can
-#     reach this service as `push:8787` (the Caddyfile site block target).
-#   - no published host ports — only Caddy (and the relay's own db) reach it.
-#   - restart: unless-stopped, for resilience across reboots.
-#   - mounts the APNs .p8 + FCM service-account JSON from ./secrets/ (read-only).
+# Unlike the old co-located deploy (docker-compose.prod.yml, which joined
+# Mantle's network and borrowed Mantle's Caddy), this box is standalone: it runs
+# its OWN Caddy to terminate TLS for push.crossworks.network and proxy to the
+# relay. Nothing here is published to the host except Caddy's 80/443.
 #
 # Values come from a gitignored `.env` next to this file on the box (compose
-# auto-loads it). To go LIVE: drop the two secret files in ./secrets/, set
-# PUSH_PROVIDER=live in that .env, then re-run the up command above. Until then
-# it runs PUSH_PROVIDER=mock and ignores the (absent) secrets.
+# auto-loads it). To go live: drop AuthKey.p8 + fcm-service-account.json in
+# ./secrets/, set PUSH_PROVIDER=live in .env, then run the up command above.
 
 services:
   push:
     restart: unless-stopped
-    ports: !override [] # drop the dev 8787:8787 publish
+    ports: !override [] # internal only — Caddy reaches it as push:8787
     environment:
       PORT: 8787
       DATABASE_URL: postgres://push:push@db:5432/mantle_push
@@ -34,15 +31,25 @@ services:
     volumes:
       - ./secrets/AuthKey.p8:/run/secrets/apns.p8:ro
       - ./secrets/fcm-service-account.json:/run/secrets/fcm-service-account.json:ro
-    networks:
-      - default
-      - mantle
 
   db:
     restart: unless-stopped
     ports: !override [] # don't expose Postgres on the host
 
-networks:
-  mantle:
-    external: true
-    name: mantle_default
+  caddy:
+    image: caddy:2-alpine
+    container_name: mantle_push_caddy
+    restart: unless-stopped
+    depends_on:
+      - push
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

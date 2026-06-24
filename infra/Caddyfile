@@ -1,0 +1,12 @@
+# Caddyfile for the DEDICATED Mantle Push box (push.crossworks.network).
+#
+# On its own VPS, Mantle Push no longer borrows Mantle's reverse proxy — it runs
+# its own Caddy, which terminates TLS (auto Let's Encrypt) and proxies to the
+# relay container on the internal compose network. See docker-compose.vps.yml.
+push.crossworks.network {
+	encode zstd gzip
+	reverse_proxy push:8787
+	request_body {
+		max_size 64KB
+	}
+}
