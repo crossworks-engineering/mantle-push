@@ -14,6 +14,7 @@
     "start": "node src/index.ts",
     "migrate": "node src/migrate.ts",
     "typecheck": "tsc --noEmit",
+    "test": "node --test",
     "smoke": "node scripts/smoke.ts"
   },
   "dependencies": {

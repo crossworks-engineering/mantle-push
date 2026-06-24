@@ -68,10 +68,14 @@ pnpm install
 docker compose up -d db            # its own Postgres on :5544 (isolated from Mantle's)
 pnpm migrate                       # apply migrations/0001_init.sql
 pnpm dev                           # PUSH_PROVIDER=mock by default — no Apple/Google creds needed
+pnpm test                          # unit tests (node:test) — no DB/server needed
 pnpm smoke                         # end-to-end: register → enroll → notify → … (14 checks)
 ```
 
-`pnpm typecheck` runs `tsc --noEmit`. The service runs TypeScript directly via
+`pnpm test` runs the built-in `node --test` runner over `src/**/*.test.ts`
+(tokens / ticket / ratelimit — the security-critical primitives; 36 checks, no
+DB or running server required). `pnpm smoke` is the integration test and needs a
+live relay. `pnpm typecheck` runs `tsc --noEmit`. The service runs TypeScript directly via
 Node's native type-stripping (Node ≥ 22.6) — there's no build step. (Avoid
 TS features strip-mode rejects: enums, namespaces, constructor parameter
 properties.)
@@ -98,6 +102,7 @@ src/
     ticket.ts     mint + verify enrollment tickets (HMAC)
     store.ts      the only module that touches SQL
     ratelimit.ts  per-instance fixed-window limiter
+    *.test.ts     node:test units for tokens / ticket / ratelimit
   push/
     index.ts      provider selection + per-platform dispatch
     apns.ts       APNs HTTP/2 + JWT
